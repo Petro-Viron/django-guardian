@@ -9,16 +9,16 @@ from __future__ import unicode_literals
 import os
 import logging
 from itertools import chain
+import django
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.models import AnonymousUser, Group
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.db.models import Model
-from django.http import HttpResponseForbidden, HttpResponseRedirect
+from django.http import HttpResponseForbidden
 from django.shortcuts import render_to_response
 from django.template import RequestContext, TemplateDoesNotExist
-from django.utils.http import urlquote
 
 from guardian.compat import get_user_model
 from guardian.conf import settings as guardian_settings
@@ -33,9 +33,11 @@ abspath = lambda *p: os.path.abspath(os.path.join(*p))
 def get_anonymous_user():
     """
     Returns ``User`` instance (not ``AnonymousUser``) depending on
-    ``ANONYMOUS_USER_ID`` configuration.
+    ``ANONYMOUS_USER_NAME`` configuration.
     """
-    return get_user_model().objects.get(pk=guardian_settings.ANONYMOUS_USER_ID)
+    User = get_user_model()
+    lookup = {User.USERNAME_FIELD: guardian_settings.ANONYMOUS_USER_NAME}
+    return User.objects.get(**lookup)
 
 
 def get_identity(identity):
@@ -78,11 +80,11 @@ def get_identity(identity):
         return None, identity
 
     raise NotUserNorGroup("User/AnonymousUser or Group instance is required "
-        "(got %s)" % identity)
+                          "(got %s)" % identity)
 
 
 def get_403_or_None(request, perms, obj=None, login_url=None,
-    redirect_field_name=None, return_403=False, accept_global_perms=False):
+                    redirect_field_name=None, return_403=False, accept_global_perms=False):
     login_url = login_url or settings.LOGIN_URL
     redirect_field_name = redirect_field_name or REDIRECT_FIELD_NAME
 
@@ -95,20 +97,17 @@ def get_403_or_None(request, perms, obj=None, login_url=None,
         has_permissions = all(request.user.has_perm(perm) for perm in perms)
     # if still no permission granted, try obj perms
     if not has_permissions:
-        has_permissions = all(request.user.has_perm(perm, obj) for perm in perms)
+        has_permissions = all(request.user.has_perm(perm, obj)
+                              for perm in perms)
 
     if not has_permissions:
         if return_403:
             if guardian_settings.RENDER_403:
-                try:
-                    response = render_to_response(
-                        guardian_settings.TEMPLATE_403, {},
-                        RequestContext(request))
-                    response.status_code = 403
-                    return response
-                except TemplateDoesNotExist as e:
-                    if settings.DEBUG:
-                        raise e
+                response = render_to_response(
+                    guardian_settings.TEMPLATE_403, {},
+                    RequestContext(request))
+                response.status_code = 403
+                return response
             elif guardian_settings.RAISE_403:
                 raise PermissionDenied
             return HttpResponseForbidden()
@@ -128,17 +127,16 @@ def clean_orphan_obj_perms():
     from guardian.models import UserObjectPermission
     from guardian.models import GroupObjectPermission
 
-
     deleted = 0
     # TODO: optimise
     for perm in chain(UserObjectPermission.objects.all(),
-        GroupObjectPermission.objects.all()):
+                      GroupObjectPermission.objects.all()):
         if perm.content_object is None:
             logger.debug("Removing %s (pk=%d)" % (perm, perm.pk))
             perm.delete()
             deleted += 1
     logger.info("Total removed orphan object permissions instances: %d" %
-        deleted)
+                deleted)
     return deleted
 
 
@@ -149,15 +147,25 @@ def get_obj_perms_model(obj, base_cls, generic_cls):
     if isinstance(obj, Model):
         obj = obj.__class__
     ctype = ContentType.objects.get_for_model(obj)
-    for attr in obj._meta.get_all_related_objects():
-        model = getattr(attr, 'model', None)
+
+    if django.VERSION >= (1, 8):
+        fields = (f for f in obj._meta.get_fields()
+                  if (f.one_to_many or f.one_to_one) and f.auto_created)
+    else:
+        fields = obj._meta.get_all_related_objects()
+
+    for attr in fields:
+        if django.VERSION < (1, 8):
+            model = getattr(attr, 'model', None)
+        else:
+            model = getattr(attr, 'related_model', None)
         if (model and issubclass(model, base_cls) and
                 model is not generic_cls):
             # if model is generic one it would be returned anyway
             if not model.objects.is_generic():
                 # make sure that content_object's content_type is same as
                 # the one of given obj
-                fk = model._meta.get_field_by_name('content_object')[0]
+                fk = model._meta.get_field('content_object')
                 if ctype == ContentType.objects.get_for_model(fk.rel.to):
                     return model
     return generic_cls

@@ -26,6 +26,9 @@ def create_anonymous_user(sender, **kwargs):
     """
     Creates anonymous User instance with id and username from settings.
     """
+    using = kwargs.get('using', '')
+    if using == 'celery': return
+
     User = get_user_model()
     try:
         User.objects.get(pk=guardian_settings.ANONYMOUS_USER_ID)

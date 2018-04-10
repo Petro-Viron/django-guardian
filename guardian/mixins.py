@@ -1,15 +1,12 @@
 from __future__ import unicode_literals
-
 from collections import Iterable
 from django.conf import settings
-from django.contrib.auth.decorators import REDIRECT_FIELD_NAME
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ImproperlyConfigured
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.decorators import login_required, REDIRECT_FIELD_NAME
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from guardian.compat import basestring
 from guardian.models import UserObjectPermission
-from guardian.utils import get_403_or_None
-from guardian.utils import get_anonymous_user
+from guardian.utils import get_403_or_None, get_anonymous_user
+from guardian.shortcuts import get_objects_for_user
 
 
 class LoginRequiredMixin(object):
@@ -46,7 +43,7 @@ class LoginRequiredMixin(object):
 
     def dispatch(self, request, *args, **kwargs):
         return login_required(redirect_field_name=self.redirect_field_name,
-            login_url=self.login_url)(
+                              login_url=self.login_url)(
             super(LoginRequiredMixin, self).dispatch
         )(request, *args, **kwargs)
 
@@ -59,8 +56,8 @@ class PermissionRequiredMixin(object):
     If a `get_object()` method is defined either manually or by including
     another mixin (for example ``SingleObjectMixin``) or ``self.object`` is
     defined then the permission will be tested against that specific instance,
-    alternatively you can specify `get_permission_object()` method if ``self.object`` 
-    or `get_object()` does not return the object against you want to test permission 
+    alternatively you can specify `get_permission_object()` method if ``self.object``
+    or `get_object()` does not return the object against you want to test permission
 
     .. note:
        Testing of a permission against a specific object instance requires an
@@ -118,20 +115,21 @@ class PermissionRequiredMixin(object):
         *Default*: ``False``,  If accept_global_perms would be set to True, then
          mixing would first check for global perms, if none found, then it will
          proceed to check object level permissions.
+
     ``PermissionRequiredMixin.permission_object``
-         *Default*: ``None``, object against which test the permission; if None fallback
-         to ``self.get_permission_object()`` which return ``self.get_object()`` 
+         *Default*: ``(not set)``, object against which test the permission; if not set fallback
+         to ``self.get_permission_object()`` which return ``self.get_object()``
          or ``self.object`` by default.
 
     """
-    ### default class view settings
+    # default class view settings
     login_url = settings.LOGIN_URL
     permission_required = None
     redirect_field_name = REDIRECT_FIELD_NAME
     return_403 = False
     raise_exception = False
     accept_global_perms = False
-    permission_object = None
+
     def get_required_permissions(self, request=None):
         """
         Returns list of permissions in format *<app_label>.<codename>* that
@@ -146,17 +144,17 @@ class PermissionRequiredMixin(object):
             perms = [p for p in self.permission_required]
         else:
             raise ImproperlyConfigured("'PermissionRequiredMixin' requires "
-                "'permission_required' attribute to be set to "
-                "'<app_label>.<permission codename>' but is set to '%s' instead"
-                % self.permission_required)
+                                       "'permission_required' attribute to be set to "
+                                       "'<app_label>.<permission codename>' but is set to '%s' instead"
+                                       % self.permission_required)
         return perms
-    
+
     def get_permission_object(self):
-        if self.permission_object:
+        if hasattr(self, 'permission_object'):
             return self.permission_object
-        return (hasattr(self, 'get_object') and self.get_object()
-                or getattr(self, 'object', None))
-                
+        return (hasattr(self, 'get_object') and self.get_object() or
+                getattr(self, 'object', None))
+
     def check_permissions(self, request):
         """
         Checks if *request.user* has all permissions returned by
@@ -166,15 +164,15 @@ class PermissionRequiredMixin(object):
         """
         obj = self.get_permission_object()
 
-
         forbidden = get_403_or_None(request,
-            perms=self.get_required_permissions(request),
-            obj=obj,
-            login_url=self.login_url,
-            redirect_field_name=self.redirect_field_name,
-            return_403=self.return_403,
-            accept_global_perms=self.accept_global_perms
-        )
+                                    perms=self.get_required_permissions(
+                                        request),
+                                    obj=obj,
+                                    login_url=self.login_url,
+                                    redirect_field_name=self.redirect_field_name,
+                                    return_403=self.return_403,
+                                    accept_global_perms=self.accept_global_perms
+                                    )
         if forbidden:
             self.on_permission_check_fail(request, forbidden, obj=obj)
         if forbidden and self.raise_exception:
@@ -200,10 +198,11 @@ class PermissionRequiredMixin(object):
         if response:
             return response
         return super(PermissionRequiredMixin, self).dispatch(request, *args,
-            **kwargs)
+                                                             **kwargs)
 
 
 class GuardianUserMixin(object):
+
     @staticmethod
     def get_anonymous():
         return get_anonymous_user()
@@ -213,3 +212,24 @@ class GuardianUserMixin(object):
 
     def del_obj_perm(self, perm, obj):
         return UserObjectPermission.objects.remove_perm(perm, self, obj)
+
+
+class PermissionListMixin(object):
+    permission_required = None
+
+    def get_required_permission(self):
+        if self.permission_required is None:
+            raise ImproperlyConfigured(
+                '{0} is missing the permission_required attribute. Define {0}.permission_required, or override '
+                '{0}.get_permission_required().'.format(self.__class__.__name__)
+            )
+        return self.permission_required
+
+    def get_get_objects_for_user_kwargs(self, queryset):
+        return dict(user=self.request.user,
+                    perms=self.get_required_permission(),
+                    klass=queryset)
+
+    def get_queryset(self, *args, **kwargs):
+        qs = super(PermissionListMixin, self).get_queryset(*args, **kwargs)
+        return get_objects_for_user(**self.get_get_objects_for_user_kwargs(qs))

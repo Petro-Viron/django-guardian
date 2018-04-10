@@ -1,12 +1,7 @@
 from __future__ import unicode_literals
-
 from django import forms
 from django.utils.translation import ugettext as _
-
-from guardian.shortcuts import assign_perm
-from guardian.shortcuts import remove_perm
-from guardian.shortcuts import get_perms
-from guardian.shortcuts import get_perms_for_model
+from guardian.shortcuts import assign_perm, get_group_perms, get_perms_for_model, get_user_perms, remove_perm
 
 
 class BaseObjectPermissionsForm(forms.Form):
@@ -17,6 +12,8 @@ class BaseObjectPermissionsForm(forms.Form):
 
     def __init__(self, obj, *args, **kwargs):
         """
+        Constructor for BaseObjectPermissionsForm.
+
         :param obj: Any instance which form would use to manage object
           permissions"
         """
@@ -125,7 +122,7 @@ class UserObjectPermissionsForm(BaseObjectPermissionsForm):
         super(UserObjectPermissionsForm, self).__init__(*args, **kwargs)
 
     def get_obj_perms_field_initial(self):
-        perms = get_perms(self.user, self.obj)
+        perms = get_user_perms(self.user, self.obj)
         return perms
 
     def save_obj_perms(self):
@@ -172,7 +169,7 @@ class GroupObjectPermissionsForm(BaseObjectPermissionsForm):
         super(GroupObjectPermissionsForm, self).__init__(*args, **kwargs)
 
     def get_obj_perms_field_initial(self):
-        perms = get_perms(self.group, self.obj)
+        perms = get_group_perms(self.group, self.obj)
         return perms
 
     def save_obj_perms(self):
@@ -191,4 +188,3 @@ class GroupObjectPermissionsForm(BaseObjectPermissionsForm):
 
         for perm in perms:
             assign_perm(perm, self.group, self.obj)
-

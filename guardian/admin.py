@@ -1,20 +1,30 @@
 from __future__ import unicode_literals
+
+import django
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.core.urlresolvers import reverse
-from django.shortcuts import get_object_or_404, redirect, render_to_response, render
+from django.shortcuts import (
+    get_object_or_404,
+    redirect,
+    render,
+    render_to_response,
+)
 from django.template import RequestContext
-from django.utils.translation import ugettext_lazy as _
+from django.urls import reverse
 from django.utils.translation import ugettext
-from guardian.compat import get_model_name, get_user_model, OrderedDict, url
+from django.utils.translation import ugettext_lazy as _
+from guardian.compat import OrderedDict, get_model_name, get_user_model, url
 from guardian.forms import GroupObjectPermissionsForm, UserObjectPermissionsForm
 from guardian.models import Group
-from guardian.shortcuts import (get_group_perms, get_groups_with_perms, get_perms_for_model, get_user_perms,
-                                get_users_with_perms)
-
-import django
+from guardian.shortcuts import (
+    get_group_perms,
+    get_groups_with_perms,
+    get_perms_for_model,
+    get_user_perms,
+    get_users_with_perms,
+)
 
 
 class AdminUserObjectPermissionsForm(UserObjectPermissionsForm):

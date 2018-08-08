@@ -26,7 +26,7 @@ def check_user_support(user_obj):
     """
     # This is how we support anonymous users - simply try to retrieve User
     # instance and perform checks for that predefined user
-    if not user_obj.is_authenticated():
+    if not user_obj.is_authenticated:
         # If anonymous user permission is disabled then they are always
         # unauthorized
         if settings.ANONYMOUS_USER_NAME is None:

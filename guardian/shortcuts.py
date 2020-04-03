@@ -90,10 +90,10 @@ def assign_perm(perm, user_or_group, obj=None):
     if isinstance(obj, QuerySet):
         if user:
             model = get_user_obj_perms_model(obj.model, user)
-            return model.objects.bulk_assign_perm(perm, user, obj)
+            return model.objects.db_manager(db).bulk_assign_perm(perm, user, obj)
         if group:
             model = get_group_obj_perms_model(obj.model, group)
-            return model.objects.bulk_assign_perm(perm, group, obj)
+            return model.objects.db_manager(db).bulk_assign_perm(perm, group, obj)
 
     if user:
         model = get_user_obj_perms_model(obj, user)
@@ -101,7 +101,7 @@ def assign_perm(perm, user_or_group, obj=None):
 
     if group:
         model = get_group_obj_perms_model(obj, group)
-        return model.objects.assign_perm(perm, group, obj)
+        return model.objects.db_manager(db).assign_perm(perm, group, obj)
 
 
 def assign(perm, user_or_group, obj=None):
@@ -127,6 +127,8 @@ def remove_perm(perm, user_or_group=None, obj=None):
       Default is ``None``.
 
     """
+    db = user_or_group._state.db
+
     user, group = get_identity(user_or_group)
     if obj is None:
         try:
@@ -134,7 +136,7 @@ def remove_perm(perm, user_or_group=None, obj=None):
         except ValueError:
             raise ValueError("For global permissions, first argument must be in"
                              " format: 'app_label.codename' (is %r)" % perm)
-        perm = Permission.objects.get(content_type__app_label=app_label,
+        perm = Permission.objects.using(db).get(content_type__app_label=app_label,
                                       codename=codename)
         if user:
             user.user_permissions.remove(perm)
@@ -149,18 +151,18 @@ def remove_perm(perm, user_or_group=None, obj=None):
     if isinstance(obj, QuerySet):
         if user:
             model = get_user_obj_perms_model(obj.model, user)
-            return model.objects.bulk_remove_perm(perm, user, obj)
+            return model.objects.db_manager(db).bulk_remove_perm(perm, user, obj)
         if group:
             model = get_group_obj_perms_model(obj.model, group)
-            return model.objects.bulk_remove_perm(perm, group, obj)
+            return model.objects.db_manager(db).bulk_remove_perm(perm, group, obj)
 
     if user:
         model = get_user_obj_perms_model(obj, user)
-        return model.objects.remove_perm(perm, user, obj)
+        return model.objects.db_manager(db).remove_perm(perm, user, obj)
 
     if group:
         model = get_group_obj_perms_model(obj, group)
-        return model.objects.remove_perm(perm, group, obj)
+        return model.objects.db_manager(db).remove_perm(perm, group, obj)
 
 
 def get_perms(user_or_group, obj):
@@ -256,7 +258,7 @@ def get_users_with_perms(obj, attach_perms=False, with_superusers=False,
             user_filters = {'%s__content_object' % related_name: obj}
         qset = Q(**user_filters)
         if with_group_users:
-            group_model = get_group_obj_perms_model(obj)
+            group_model = get_group_obj_perms_model(obj, group)
             group_rel_name = group_model.group.field.related_query_name()
             if group_model.objects.is_generic():
                 group_filters = {
@@ -317,7 +319,7 @@ def get_groups_with_perms(obj, attach_perms=False):
     if not attach_perms:
         # It's much easier without attached perms so we do it first if that is
         # the case
-        group_model = get_group_obj_perms_model(obj)
+        group_model = get_group_obj_perms_model(obj, group)
         group_rel_name = group_model.group.field.related_query_name()
         if group_model.objects.is_generic():
             group_filters = {
@@ -524,7 +526,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
 
     # Now we should extract list of pk values for which we would filter
     # queryset
-    user_model = get_user_obj_perms_model(queryset.model)
+    user_model = get_user_obj_perms_model(queryset.model, user)
     user_obj_perms_queryset = (user_model.objects
                                .filter(user=user)
                                .filter(permission__content_type=ctype))
@@ -539,7 +541,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         user_fields = direct_fields
 
     if use_groups:
-        group_model = get_group_obj_perms_model(queryset.model)
+        group_model = get_group_obj_perms_model(queryset.model, group)
         group_filters = {
             'permission__content_type': ctype,
             'group__%s' % get_user_model().groups.field.related_query_name(): user,
@@ -702,7 +704,7 @@ def get_objects_for_group(group, perms, klass=None, any_perm=False, accept_globa
 
     # Now we should extract list of pk values for which we would filter
     # queryset
-    group_model = get_group_obj_perms_model(queryset.model)
+    group_model = get_group_obj_perms_model(queryset.model, group)
     groups_obj_perms_queryset = (group_model.objects
                                  .filter(group=group)
                                  .filter(permission__content_type=ctype))
@@ -847,7 +849,7 @@ def get_objects_for_groups(groups, perms, klass=None, any_perm=False, accept_glo
             return queryset
 
     # Now we should extract list of pk values for which we would filter queryset
-    group_model = get_group_obj_perms_model(queryset.model)
+    group_model = get_group_obj_perms_model(queryset.model, group)
     groups_obj_perms_queryset = (group_model.objects
                                  .filter(group__in=groups)
                                  .filter(permission__content_type=ctype)

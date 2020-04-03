@@ -177,7 +177,7 @@ def get_user_obj_perms_model(obj, user):
     """
     from guardian.models import UserObjectPermissionBase
     from guardian.models import UserObjectPermission
-    return get_obj_perms_model(obj, UserObjectPermissionBase, UserObjectPermission)
+    return get_obj_perms_model(obj, UserObjectPermissionBase, UserObjectPermission, user)
 
 
 def get_group_obj_perms_model(obj, group):
@@ -186,4 +186,4 @@ def get_group_obj_perms_model(obj, group):
     """
     from guardian.models import GroupObjectPermissionBase
     from guardian.models import GroupObjectPermission
-    return get_obj_perms_model(obj, GroupObjectPermissionBase, GroupObjectPermission)
+    return get_obj_perms_model(obj, GroupObjectPermissionBase, GroupObjectPermission, group)

@@ -142,7 +142,7 @@ def clean_orphan_obj_perms():
 # TODO: should raise error when multiple UserObjectPermission direct relations
 # are defined
 
-def get_obj_perms_model(obj, base_cls, generic_cls, user):
+def get_obj_perms_model(obj, base_cls, generic_cls, user=None):
     db = user._state.db
     if isinstance(obj, Model):
         obj = obj.__class__
@@ -171,7 +171,7 @@ def get_obj_perms_model(obj, base_cls, generic_cls, user):
     return generic_cls
 
 
-def get_user_obj_perms_model(obj, user):
+def get_user_obj_perms_model(obj, user=None):
     """
     Returns model class that connects given ``obj`` and User class.
     """

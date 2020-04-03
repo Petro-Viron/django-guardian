@@ -89,18 +89,18 @@ def assign_perm(perm, user_or_group, obj=None):
 
     if isinstance(obj, QuerySet):
         if user:
-            model = get_user_obj_perms_model(obj.model)
+            model = get_user_obj_perms_model(obj.model, user)
             return model.objects.bulk_assign_perm(perm, user, obj)
         if group:
-            model = get_group_obj_perms_model(obj.model)
+            model = get_group_obj_perms_model(obj.model, group)
             return model.objects.bulk_assign_perm(perm, group, obj)
 
     if user:
-        model = get_user_obj_perms_model(obj)
+        model = get_user_obj_perms_model(obj, user)
         return model.objects.db_manager(db).assign_perm(perm, user, obj)
 
     if group:
-        model = get_group_obj_perms_model(obj)
+        model = get_group_obj_perms_model(obj, group)
         return model.objects.assign_perm(perm, group, obj)
 
 
@@ -148,18 +148,18 @@ def remove_perm(perm, user_or_group=None, obj=None):
 
     if isinstance(obj, QuerySet):
         if user:
-            model = get_user_obj_perms_model(obj.model)
+            model = get_user_obj_perms_model(obj.model, user)
             return model.objects.bulk_remove_perm(perm, user, obj)
         if group:
-            model = get_group_obj_perms_model(obj.model)
+            model = get_group_obj_perms_model(obj.model, group)
             return model.objects.bulk_remove_perm(perm, group, obj)
 
     if user:
-        model = get_user_obj_perms_model(obj)
+        model = get_user_obj_perms_model(obj, user)
         return model.objects.remove_perm(perm, user, obj)
 
     if group:
-        model = get_group_obj_perms_model(obj)
+        model = get_group_obj_perms_model(obj, group)
         return model.objects.remove_perm(perm, group, obj)
 
 
@@ -240,11 +240,12 @@ def get_users_with_perms(obj, attach_perms=False, with_superusers=False,
         {<User: joe>: [u'change_flatpage']}
 
     """
+    user = obj # used for db routing
     ctype = ContentType.objects.get_for_model(obj)
     if not attach_perms:
         # It's much easier without attached perms so we do it first if that is
         # the case
-        user_model = get_user_obj_perms_model(obj)
+        user_model = get_user_obj_perms_model(obj, user)
         related_name = user_model.user.field.related_query_name()
         if user_model.objects.is_generic():
             user_filters = {

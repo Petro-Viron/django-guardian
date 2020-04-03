@@ -849,7 +849,7 @@ def get_objects_for_groups(groups, perms, klass=None, any_perm=False, accept_glo
             return queryset
 
     # Now we should extract list of pk values for which we would filter queryset
-    group_model = get_group_obj_perms_model(queryset.model, group)
+    group_model = get_group_obj_perms_model(queryset.model, groups[0])
     groups_obj_perms_queryset = (group_model.objects
                                  .filter(group__in=groups)
                                  .filter(permission__content_type=ctype)

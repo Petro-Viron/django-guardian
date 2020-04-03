@@ -142,8 +142,7 @@ def clean_orphan_obj_perms():
 # TODO: should raise error when multiple UserObjectPermission direct relations
 # are defined
 
-def get_obj_perms_model(obj, base_cls, generic_cls, user=None):
-    db = user._state.db
+def get_obj_perms_model(obj, base_cls, generic_cls):
     if isinstance(obj, Model):
         obj = obj.__class__
     ctype = ContentType.objects.db_manager(db).get_for_model(obj)
@@ -177,7 +176,7 @@ def get_user_obj_perms_model(obj, user=None):
     """
     from guardian.models import UserObjectPermissionBase
     from guardian.models import UserObjectPermission
-    return get_obj_perms_model(obj, UserObjectPermissionBase, UserObjectPermission, user)
+    return get_obj_perms_model(obj, UserObjectPermissionBase, UserObjectPermission)
 
 
 def get_group_obj_perms_model(obj, group):

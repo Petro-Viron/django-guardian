@@ -64,7 +64,7 @@ def assign_perm(perm, user_or_group, obj=None):
     <Permission: sites | site | Can change site>
 
     """
-
+    db = user_or_group._state.db
     user, group = get_identity(user_or_group)
     # If obj is None we try to operate on global permissions
     if obj is None:
@@ -74,8 +74,8 @@ def assign_perm(perm, user_or_group, obj=None):
             except ValueError:
                 raise ValueError("For global permissions, first argument must be in"
                                  " format: 'app_label.codename' (is %r)" % perm)
-            perm = Permission.objects.get(content_type__app_label=app_label,
-                                          codename=codename)
+            perm = Permission.objects.using(db).get(content_type__app_label=app_label,
+                                                  codename=codename)
 
         if user:
             user.user_permissions.add(perm)
@@ -97,7 +97,7 @@ def assign_perm(perm, user_or_group, obj=None):
 
     if user:
         model = get_user_obj_perms_model(obj)
-        return model.objects.assign_perm(perm, user, obj)
+        return model.objects.db_manager(db).assign_perm(perm, user, obj)
 
     if group:
         model = get_group_obj_perms_model(obj)

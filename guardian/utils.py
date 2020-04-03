@@ -143,9 +143,10 @@ def clean_orphan_obj_perms():
 # are defined
 
 def get_obj_perms_model(obj, base_cls, generic_cls):
+    db = obj._state.db
     if isinstance(obj, Model):
         obj = obj.__class__
-    ctype = ContentType.objects.get_for_model(obj)
+    ctype = ContentType.objects.db_manager(db).get_for_model(obj)
 
     if django.VERSION >= (1, 8):
         fields = (f for f in obj._meta.get_fields()
@@ -165,7 +166,7 @@ def get_obj_perms_model(obj, base_cls, generic_cls):
                 # make sure that content_object's content_type is same as
                 # the one of given obj
                 fk = model._meta.get_field('content_object')
-                if ctype == ContentType.objects.get_for_model(fk.rel.to):
+                if ctype == ContentType.objects.db_manager(db).get_for_model(fk.rel.to):
                     return model
     return generic_cls
 
